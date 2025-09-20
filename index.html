@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Decent Icons</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+  <link rel="stylesheet" href="assets/styles.css">
+  <script defer src="scripts/app.js"></script>
+</head>
+
+<body>
+
+  <div id="app">
+
+    <div id="navbar">
+      <div id="navbar-left">
+          <div id="header">
+            <img id="header-logo" src="assets/logo.svg" alt="Icon Forge logo" />
+            <h1 class="header-title">Decent Icons</h1>
+          </div>
+      </div>
+      <div id="navbar-right">
+        <button id="download-btn" class="animated-button">Save</button>
+      </div>
+    </div>
+
+    <div id="main">
+      <div id="right">
+        <div id="canvas-container">
+          <div id="canvas"></div>
+        </div>
+      </div>
+      <div id="left">
+        <div id="controls">
+
+          <div id="controls-heading">Options</div>
+
+          <!-- MARK: Icon Controls -->
+          <div class="control-group-heading">Icon</div>
+          <div class="control-group">
+
+            <!-- icon -->
+
+            <div class="control-item">
+              <div class="control-v-stack">
+                <!-- above fold -->
+                <div class="control-h-stretch">
+                  <span>Icon</span>
+                  <div id="select-icon-button" title="Select icon" aria-expanded="false" aria-controls="icon-selector"
+                    role="button" tabindex="0" class="animated-button">
+                    <div class="select-icon-preview">
+                      <div class="icon-svg"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- below fold -->
+                <!-- icon selector moved to a fullscreen popup (see bottom of body) -->
+
+              </div>
+            </div>
+
+            <!-- icon style -->
+            <div class="control-item">
+              <div class="control-h-stretch">
+                <label for="glyph-style">Style</label>
+                <select id="glyph-style" title="Icon style">
+                  <option value="glass">Glass</option>
+                  <option value="gradient">Gradient</option>
+                  <option value="flat">Flat</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- icon color -->
+            <div class="control-item">
+              <div class="control-v-stack">
+                <!-- above fold -->
+                <div class="control-h-stretch">
+                  <label for="glyph-palette-btn">Color</label>
+                  <div id="glyph-palette-btn" class="palette-btn animated-button" title="Glyph color"></div>
+                </div>
+
+                <!-- below fold -->
+                <!-- icon color popup -->
+                <div id="glyph-grid-popup" class="color-grid-popup" aria-hidden="true">
+                  <div class="color-grid-popup-inner">
+                    <div class="grid-color" data-color="#FF383C" title="Red" style="background:#FF383C"></div>
+                    <div class="grid-color" data-color="#FF8D28" title="Orange" style="background:#FF8D28"></div>
+                    <div class="grid-color" data-color="#FFCC00" title="Yellow" style="background:#FFCC00"></div>
+                    <div class="grid-color" data-color="#34C759" title="Green" style="background:#34C759"></div>
+                    <div class="grid-color" data-color="#00C8B3" title="Mint" style="background:#00C8B3"></div>
+                    <div class="grid-color" data-color="#00C3D0" title="Teal" style="background:#00C3D0"></div>
+                    <div class="grid-color" data-color="#00C0E8" title="Cyan" style="background:#00C0E8"></div>
+                    <div class="grid-color" data-color="#0088FF" title="Blue" style="background:#0088FF"></div>
+                    <div class="grid-color" data-color="#6155F5" title="Indigo" style="background:#6155F5"></div>
+                    <div class="grid-color" data-color="#CB30E0" title="Purple" style="background:#CB30E0"></div>
+                    <div class="grid-color" data-color="#FF2D55" title="Pink" style="background:#FF2D55"></div>
+                    <div class="grid-color" data-color="#AC7F5E" title="Brown" style="background:#AC7F5E"></div>
+                    <div class="grid-color" data-color="#FFFFFF" title="White" style="background:#FFFFFF"></div>
+                    <div class="grid-color" data-color="#8E8E93" title="Gray" style="background:#8E8E93"></div>
+                    <div class="grid-color" data-color="#1C1C1E" title="Black" style="background:#1C1C1E"></div>
+                    <div id="glyph-grid-color-custom" class="grid-color custom" title="Custom"
+                      style="background:linear-gradient(90deg, red, yellow, lime, blue);">
+                      +
+                      <input type="color" class="custom-color-input" id="custom-glyph-color-input" value="#FFFFFF">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- icon scale -->
+            <div class="control-item">
+              <div class="control-v-stack">
+                <div class="control-h-stretch">
+                  <span>Scale</span>
+                  <span class="slider-value">70%</span>
+                </div>
+                <input type="range" id="size-slider" min="0" max="100" step="10" value="70">
+              </div>
+            </div>
+
+
+            <!-- icon rotation -->
+            <div class="control-item">
+              <div class="control-v-stack">
+                <div class="control-h-stretch">
+                  <span>Rotation</span>
+                  <span class="slider-value">0°</span>
+                </div>
+                <input type="range" id="angle-slider" min="0" max="345" step="15" value="0">
+              </div>
+            </div>
+          </div>
+
+          <!-- MARK: Background Controls -->
+          <div class="control-group-heading">Background</div>
+          <div class="control-group">
+
+            <!-- background style -->
+            <div class="control-item">
+              <div class="control-h-stretch">
+                <label for="bg-style">Style</label>
+                <select id="bg-style" title="Background style">
+                  <option value="gradient">Gradient</option>
+                  <option value="flat">Flat</option>
+                  <option value="none">None</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- background color -->
+            <div class="control-item">
+              <div class="control-v-stack">
+                <!-- above fold -->
+                <div class="control-h-stretch">
+                  <label for="color-palette-btn">Color</label>
+                  <div id="color-palette-btn" class="palette-btn animated-button" title="Background color"></div>
+                </div>
+                <!-- below fold -->
+                <!-- background color popup -->
+                <div id="color-grid-popup" class="color-grid-popup" aria-hidden="true">
+                  <div class="color-grid-popup-inner">
+                    <div class="grid-color" data-color="#FF383C" title="Red" style="background:#FF383C"></div>
+                    <div class="grid-color" data-color="#FF8D28" title="Orange" style="background:#FF8D28"></div>
+                    <div class="grid-color" data-color="#FFCC00" title="Yellow" style="background:#FFCC00"></div>
+                    <div class="grid-color" data-color="#34C759" title="Green" style="background:#34C759"></div>
+                    <div class="grid-color" data-color="#00C8B3" title="Mint" style="background:#00C8B3"></div>
+                    <div class="grid-color" data-color="#00C3D0" title="Teal" style="background:#00C3D0"></div>
+                    <div class="grid-color" data-color="#00C0E8" title="Cyan" style="background:#00C0E8"></div>
+                    <div class="grid-color" data-color="#0088FF" title="Blue" style="background:#0088FF"></div>
+                    <div class="grid-color" data-color="#6155F5" title="Indigo" style="background:#6155F5"></div>
+                    <div class="grid-color" data-color="#CB30E0" title="Purple" style="background:#CB30E0"></div>
+                    <div class="grid-color" data-color="#FF2D55" title="Pink" style="background:#FF2D55"></div>
+                    <div class="grid-color" data-color="#AC7F5E" title="Brown" style="background:#AC7F5E"></div>
+                    <div class="grid-color" data-color="#FFFFFF" title="White" style="background:#FFFFFF"></div>
+                    <div class="grid-color" data-color="#8E8E93" title="Gray" style="background:#8E8E93"></div>
+                    <div class="grid-color" data-color="#1C1C1E" title="Black" style="background:#1C1C1E"></div>
+                    <div id="grid-color-custom" class="grid-color custom" title="Custom"
+                      style="background:linear-gradient(90deg, red, yellow, lime, blue);">
+                      +
+                      <input type="color" class="custom-color-input" id="custom-color-input" value="#0088FF">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- background corner radius slider -->
+            <div class="control-item">
+              <div class="control-v-stack">
+                <div class="control-h-stretch">
+                  <span>Radius</span>
+                  <span class="slider-value" id="radius-value">25%</span>
+                </div>
+                <input type="range" id="radius-slider" min="0" max="50" step="5" value="25">
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <div id="footer">
+          <span>© Isaac Neumann. All rights reserved.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- moved fullscreen icon selector -->
+  <div id="icon-selector" aria-hidden="true" role="dialog" aria-modal="true">
+    <div id="icon-selector-title-bar">
+      <button id="icon-selector-close" title="Close">&times;</button>
+      <input id="icon-search" type="search" placeholder="Search icons..." autocomplete="off">
+    </div>
+    <div class="icon-list-wrapper">
+      <div id="icon-list-container">
+        <div id="icon-list"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
