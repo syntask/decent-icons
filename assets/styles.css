@@ -1,0 +1,743 @@
+:root {
+    --background-color: #eee;
+    --background-color-secondary: #e4e4e4;
+    --background-color-tertiary: #dadada;
+    --border-color: #cecece;
+    --foreground-color: #333;
+    --window-background-color: #eee;
+    --window-title-bar-color: #e4e4e4;
+    --ui-accent: #007bff;
+    --ui-accent-hover: #0056b3;
+    --bounce: cubic-bezier(.65, 1.86, .62, .88);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --background-color: #111;
+        --background-color-secondary: #1a1a1a;
+        --background-color-tertiary: #272727;
+        --border-color: #333;
+        --foreground-color: #eee;
+        --window-background-color: #1a1a1a;
+        --window-title-bar-color: #272727;
+        --ui-accent: #007bff;
+        --ui-accent-hover: #238dff;
+    }
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: ui-sans-serif, system-ui;
+    background: var(--background-color);
+    color: var(--foreground-color);
+    -webkit-font-smoothing: antialiased;
+}
+
+#header {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.75em;
+    box-sizing: border-box;
+}
+
+#header-logo {
+    height: 2em;
+    aspect-ratio: 1/1;
+}
+
+.header-title {
+    font-size: 2em;
+    font-weight: 700;
+    margin: 0;
+    margin-block-start: 0;
+    margin-block-end: 0;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 100vh;
+}
+
+#navbar {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background-color: var(--background-color-secondary);
+    box-sizing: border-box;
+    height: 72px;
+    min-height: 72px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border-color);
+    z-index: 1;
+}
+
+#main {
+    flex-grow: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 0;
+    justify-content: stretch;
+    align-items: stretch;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+#left {
+    width: 34%;
+    flex-grow: 1;
+    flex-shrink: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 400px;
+    min-width: 300px;
+    overflow-y: auto;
+    padding: 0 18px;
+    box-sizing: border-box;
+    background-color: var(--background-color-secondary);
+    height: auto;
+    max-height: calc(100vh - 72px);
+    z-index: 1;
+    border-right: 1px solid var(--border-color);
+}
+
+#right {
+    width: 66%;
+    flex-grow: 1;
+    flex-shrink: 1;
+    height: auto;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+#footer {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 16px;
+    font-size: 0.75em;
+    opacity: 0.25;
+    font-weight: 500;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgb(from var(--foreground-color) r g b / 0.2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+
+
+#canvas-container {
+    flex-grow: 1;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* enable panning with a grab cursor and prevent touch scrolling while panning */
+    cursor: grab;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    /* make a containing block for absolutely positioned canvas so resizing doesn't affect layout */
+    position: relative;
+    overflow: hidden;
+}
+
+#canvas {
+    /* absolute so changes to width/height won't reflow the surrounding layout */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(calc(100% - 64px), calc(100vh - 72px - 64px), 300px);
+    height: auto;
+    /* will be set to match width from JS */
+    aspect-ratio: 1/1;
+    display: grid;
+    place-items: center;
+    box-sizing: content-box;
+    /* start centered, additional pan applied after this */
+    transform: translate(-50%, -50%) translate(0px, 0px);
+}
+
+/* show grabbing cursor while actively panning */
+#canvas.panning,
+#canvas:active {
+    cursor: grabbing;
+}
+
+#canvas.show-bounds {
+    border: 0.5px dashed red;
+}
+
+#controls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 12px;
+    width: 100%;
+}
+
+#controls-heading {
+    font-size: 1.5em;
+    font-weight: 600;
+    margin-top: 24px;
+    width: 100%;
+    text-align: left;
+}
+
+.control-group-heading {
+    font-weight: 400;
+    margin-top: 24px;
+    margin-bottom: 4px;
+    margin-left: 20px;
+    color: rgb(from var(--foreground-color) r g b / 0.6);
+    width: 100%;
+    text-align: left;
+    text-transform: uppercase;
+    font-size: 0.8em;
+}
+
+.control-group {
+    width: 100%;
+    padding: 0 12px;
+    border-radius: 12px;
+    background-color: var(--background-color-tertiary);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    box-sizing: border-box;
+}
+
+.control-item {
+    width: 100%;
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 0;
+}
+
+.control-group>.control-item:last-child:not(:only-child) {
+    border-bottom: none;
+}
+
+.control-h-stretch {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 32px;
+}
+
+.control-v-stack {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    margin: 0 0;
+}
+
+button {
+    padding: 8px 24px;
+    font-size: 1em;
+    background: var(--ui-accent);
+    color: white;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.animated-button {
+    transition: transform .3s var(--bounce), opacity 0.2s;
+}
+
+.animated-button:active {
+    transform: scale(1.4);
+    opacity: 0.6;
+}
+
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    border: none;
+    color: rgb(from var(--foreground-color) r g b / 0.6);
+    font-size: 1em;
+    outline: none;
+    text-align-last: right;
+}
+
+input[type="range"] {
+    appearance: none;
+    -webkit-appearance: none;
+    background: transparent;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    cursor: pointer;
+}
+
+input[type="range"]:active {
+    cursor: grabbing;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    background: #eee;
+    width: 28px;
+    height: 16px;
+    border-radius: 8px;
+    margin-top: -5px;
+    cursor: grab;
+    transition: transform .3s var(--bounce), background-color 0.2s;
+    box-shadow: 0 0 0 1px inset rgb(from var(--foreground-color) r g b / 0.2);
+}
+
+input[type="range"]:active::-webkit-slider-thumb {
+    cursor: grabbing;
+    transform: scale(1.5);
+    background: #eeeeee33;
+    backdrop-filter: blur(2px);
+    box-shadow: 0 0 0 0.5px inset rgb(from var(--foreground-color) r g b / 0.4);
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+    cursor: grabbing;
+    transform: scale(1.5);
+    background: #eeeeee33;
+    backdrop-filter: blur(2px);
+    box-shadow: 0 0 0 0.5px inset rgb(from var(--foreground-color) r g b / 0.4);
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    background: rgb(from var(--foreground-color) r g b / 0.3);
+    height: 6px;
+    border-radius: 4px;
+}
+
+/* small button that also holds a tiny glyph preview */
+#select-icon-button {
+    width: 1.6em;
+    height: 1.6em;
+    border-radius: 999px;
+    background-color: var(--ui-accent);
+    color: #eee;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+}
+
+#select-icon-button .select-icon-preview {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#select-icon-button .select-icon-preview .icon-svg svg {
+    width: 1em;
+    height: 1em;
+    display: block;
+}
+
+/* fullscreen icon selector (fade-in popup) */
+#icon-selector {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px;
+    background: rgb(from var(--window-background-color) r g b / 0.95);
+    backdrop-filter: blur(48px);
+    -webkit-backdrop-filter: blur(48px);
+    color: var(--foreground-color);
+    box-shadow: 0 0 0 0.5px rgba(0, 0, 0, .3), 0 0 0 1px rgba(255, 255, 255, .3), 0 0 48px rgba(0, 0, 0, .3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4 ease, transform 0.4 ease;
+    z-index: 2;
+    height: min(500px, calc(100vh - 64px));
+    width: min(800px, calc(100vw - 64px));
+    top: 50%;
+    left: 50%;
+    overflow: hidden;
+    /* ensure the element is perfectly centered first, then scale it */
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(0.95);
+    filter: blur(4px);
+    transition: transform 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
+}
+
+#icon-selector.open {
+    /* keep origin centered and apply translate before scale so scaling doesn't shift center */
+    transform-origin: center center;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    filter: blur(0);
+    pointer-events: auto;
+}
+
+#icon-selector-title-bar {
+    background-color: var(--window-title-bar-color);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* close button in top-left of the popup */
+#icon-selector-close {
+    width: 12px;
+    height: 12px;
+    padding: 0;
+    margin: 0 12px;
+    border-radius: 999px;
+    background: rgb(255, 99, 91);
+    color: inherit;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 12px;
+    color: rgba(0, 0, 0, 0);
+}
+
+#icon-selector-close:hover {
+    color: rgba(0, 0, 0, 0.5);
+}
+
+/* search sits at the top and remains visible */
+#icon-search {
+    width: 300px;
+    padding: 4px 6px;
+    margin: 8px 0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    border: 1px solid rgb(from var(--foreground-color) r g b / 0.1);
+    background: rgba(255, 255, 255, 0.1);
+    color: inherit;
+    outline: none;
+    box-shadow: none;
+}
+
+/* wrapper holds the grid and allows it to scroll */
+#icon-selector .icon-list-wrapper {
+    margin: 3px 3px 3px 0;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* responsive grid for icons */
+#icon-list {
+    overflow-y: auto;
+    overflow-x: hidden;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+    gap: 16px;
+    padding: 0 12px;
+}
+
+/* slightly smaller thumb so grid breathes on narrow screens */
+.icon-thumb {
+    width: 72px;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    color: inherit;
+    border-radius: 8px;
+    cursor: pointer;
+    background: transparent;
+    overflow: hidden;
+}
+
+/* target for injected SVG so label is not overwritten */
+.icon-thumb .icon-svg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    /* allow the svg container to grow to fill the thumbnail height without forcing layout collapse */
+    flex: 1 1 auto;
+    height: auto;
+    max-height: 100%;
+}
+
+.icon-thumb .icon-svg svg {
+    width: 28px;
+    height: 28px;
+    display: block;
+}
+
+.icon-label {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.1;
+    height: 2.2em;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: wrap;
+    color: var(--foreground-color);
+    opacity: 0.85;
+    text-align: center;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* selected thumbnail visual */
+.icon-thumb.selected {
+    box-shadow: 0 0 0 2px inset var(--ui-accent);
+}
+
+.color-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.color-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 3px 6px rgba(0, 0, 0, 0.1);
+}
+
+.color-btn.selected {
+    border: 2px solid white;
+    box-shadow: 0 0 0 2px #333;
+}
+
+/* Palette button + popup grid */
+.palette-btn {
+    width: 1.6em;
+    height: 1.6em;
+    border-radius: 999px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(90deg, red, orange, yellow, green, cyan, blue);
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.palette-btn.active {
+    outline: 2px solid rgba(0, 0, 0, 0.08);
+}
+
+/* color popup: animate height instead of visibility/opacity.
+    start closed with height:0 and overflow:hidden; on open we animate to measured scrollHeight,
+    then set height:auto after the transition to remain responsive. */
+.color-grid-popup {
+    transition: height 0.18s ease, opacity 0.12s ease;
+    will-change: height, opacity;
+    pointer-events: none;
+    transform-origin: top left;
+    height: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+
+/* when open we set opacity to 1 (height is animated inline via JS) */
+.color-grid-popup.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.color-grid-popup-inner {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.grid-color {
+    width: auto;
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    box-shadow: 0 0 0 0.5px inset rgb(from var(--foreground-color) r g b / 0.2);
+    cursor: pointer;
+}
+
+.grid-color.selected {
+    box-shadow: 0 0 0 1.5px inset rgb(from var(--foreground-color) r g b / 0.8), 0 0 0 2px inset rgb(from var(--background-color) r g b / 0.6);
+}
+
+.grid-color.custom {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: white;
+    font-size: 18px;
+}
+
+.custom-color-input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider-container {
+    display: flex;
+    flex-direction: column;
+    min-width: 180px;
+}
+
+.slider-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+input[type="range"] {
+    width: 100%;
+    margin: 0;
+}
+
+.size-value {
+    font-weight: 600;
+    color: #666;
+}
+
+/* mobile breakpoint */
+@media (max-width: 600px) {
+    #main {
+        flex-direction: column;
+    }
+
+    #left {
+        width: 100%;
+        max-width: none;
+        min-width: auto;
+        padding: 12px 12px 0 12px;
+        order: 2;
+        max-height: calc(100vh - 256px);
+        border-radius: 24px 24px 0 0;
+    }
+
+    #right {
+        width: 100%;
+        order: 1;
+        height: 256px;
+        max-height: 256px;
+    }
+
+    #canvas {
+        height: calc(100% - 32px);
+        width: auto;
+    }
+
+    #icon-selector {
+        height: calc(100vh - 64px);
+        width: calc(100vw - 32px);
+        border-radius: 16px;
+    }
+
+    #icon-selector-close {
+        height: 32px;
+        width: 32px;
+        max-width: 32px;
+        max-height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+        margin: 16px;
+        font-size: 24px;
+        color: rgba(0, 0, 0, 0.5);
+    }
+
+    #icon-search {
+        width: 100%;
+        margin-right: 14px;
+        font-size: 1.1em;
+    }
+
+    #navbar {
+        display: none;
+    }
+
+    input[type="range"] {
+        padding-top: 14px;
+        padding-bottom: 14px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+        width: 35px;
+        height: 20px;
+        border-radius: 10px;
+        margin-top: -6px;
+    }
+
+    input[type="range"]:active::-webkit-slider-thumb {
+        transform: scale(2);
+    }
+
+    input[type="range"]::-webkit-slider-thumb:active {
+        transform: scale(2);
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 4px;
+    }
+
+}
+
+@media (max-width: 400px) {
+    #left {
+        max-height: calc(100vh - 200px);
+    }
+
+    #right {
+        width: 100%;
+        order: 1;
+        height: 200px;
+        max-height: 200px;
+    }
+
+    #canvas {
+        height: calc(100% - 32px);
+        width: auto;
+    }
+}
