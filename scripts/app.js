@@ -6,15 +6,54 @@ let lazyObserver = null;
 let iconsLoaded = false;
 let iconsLoadPromise = null;
 
-// Ensure icons.json is fetched once and the grid wired. Returns a Promise.
+// Debounce function to limit how often a function can be called
+function debounce(func, wait, immediate = false) {
+    let timeout;
+    return function(...args) {
+        const context = this;
+        const later = function() {
+            timeout = null;
+            if (!immediate) func.apply(context, args);
+        };
+        const callNow = immediate && !timeout;
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+        if (callNow) func.apply(context, args);
+    };
+}
+
+// Throttle function - ensures function is called at most once per specified time period
+function throttle(func, limit) {
+    let inThrottle;
+    let lastFunc;
+    let lastRan;
+    return function(...args) {
+        const context = this;
+        if (!inThrottle) {
+            func.apply(context, args);
+            lastRan = Date.now();
+            inThrottle = true;
+        } else {
+            clearTimeout(lastFunc);
+            lastFunc = setTimeout(function() {
+                if ((Date.now() - lastRan) >= limit) {
+                    func.apply(context, args);
+                    lastRan = Date.now();
+                }
+            }, limit - (Date.now() - lastRan));
+        }
+    };
+}
+
+// Ensure index.json is fetched once and the grid wired. Returns a Promise.
 function ensureIconsLoaded() {
     if (iconsLoaded) return Promise.resolve();
     if (iconsLoadPromise) return iconsLoadPromise;
     const searchInput = document.getElementById('icon-search');
-    iconsLoadPromise = fetch('assets/bootstrap-icons/icons.json')
-        .then(res => res.ok ? res.json() : Promise.reject(new Error(`Failed to load icons.json: ${res.status}`)))
+    iconsLoadPromise = fetch('assets/bootstrap-icons/index.json')
+        .then(res => res.ok ? res.json() : Promise.reject(new Error(`Failed to load index.json: ${res.status}`)))
         .then(data => {
-            availableIcons = Array.isArray(data.icons) ? data.icons : [];
+            availableIcons = Array.isArray(data) ? data : [];
             iconsLoaded = true;
             // initial render with current query (if any)
             renderIconGrid(searchInput?.value || '');
@@ -38,33 +77,41 @@ function ensureIconsLoaded() {
 
 // load SVG into a thumbnail element (idempotent)
 // throttled with a small concurrency queue to avoid spamming network on selector open
-const MAX_CONCURRENT_ICON_LOADS = 6;
+const MAX_CONCURRENT_ICON_LOADS = 12; // Increased from 6 to 12 for faster loading
 let activeIconLoads = 0;
 const iconLoadQueue = [];
 
 function processIconQueue() {
     if (activeIconLoads >= MAX_CONCURRENT_ICON_LOADS) return;
-    const job = iconLoadQueue.shift();
-    if (!job) return;
-    activeIconLoads++;
-    const { el, url } = job;
-    fetch(url)
-        .then(res => res.ok ? res.text() : Promise.reject(new Error('not found')))
-        .then(svg => {
-            const svgContainer = el.querySelector('.icon-svg') || el;
-            svgContainer.innerHTML = svg;
-            el.dataset.loaded = 'true';
-        })
-        .catch(() => {
-            el.dataset.loaded = 'error';
-            const svgContainer = el.querySelector('.icon-svg') || el;
-            if (svgContainer) svgContainer.innerHTML = '';
-        })
-        .finally(() => {
-            activeIconLoads--;
-            // schedule next job without blocking
-            setTimeout(processIconQueue, 0);
-        });
+    
+    // Process multiple jobs at once if available (up to our concurrency limit)
+    const jobsToProcess = Math.min(MAX_CONCURRENT_ICON_LOADS - activeIconLoads, iconLoadQueue.length);
+    
+    for (let i = 0; i < jobsToProcess; i++) {
+        const job = iconLoadQueue.shift();
+        if (!job) break;
+        
+        activeIconLoads++;
+        const { el, url } = job;
+        
+        fetch(url)
+            .then(res => res.ok ? res.text() : Promise.reject(new Error('not found')))
+            .then(svg => {
+                const svgContainer = el.querySelector('.icon-svg') || el;
+                svgContainer.innerHTML = svg;
+                el.dataset.loaded = 'true';
+            })
+            .catch((err) => {
+                console.error('Failed to load icon:', err);
+                el.dataset.loaded = 'error';
+                // Don't clear the container on error - better to keep previous state than show nothing
+            })
+            .finally(() => {
+                activeIconLoads--;
+                // process next jobs without delay
+                processIconQueue();
+            });
+    }
 }
 
 function enqueueIconLoad(el, iconName) {
@@ -73,8 +120,8 @@ function enqueueIconLoad(el, iconName) {
     const url = `assets/bootstrap-icons/${iconName}.svg`;
     el.dataset.loaded = 'loading'; // reserve the slot
     iconLoadQueue.push({ el, url });
-    // try to process immediately if under limit
-    setTimeout(processIconQueue, 0);
+    // Process queue immediately without the setTimeout
+    processIconQueue();
 }
 
 // Backwards-compat wrapper kept name for other callers
@@ -93,7 +140,32 @@ function renderIconGrid(filter = '') {
     }
     iconList.innerHTML = '';
     const q = (filter || '').toLowerCase();
-    const filtered = availableIcons.filter(name => name.toLowerCase().includes(q));
+    
+    // Filter icons based on the search query matching any word in name, friendly_name, tags, or categories
+    const filtered = availableIcons.filter(icon => {
+        if (!q) return true; // No filter, show all icons
+        
+        // Check name and friendly_name
+        if (icon.name.toLowerCase().includes(q) || 
+            icon.friendly_name.toLowerCase().includes(q)) {
+            return true;
+        }
+        
+        // Check each tag
+        if (icon.tags && icon.tags.some(tag => tag.toLowerCase().includes(q))) {
+            return true;
+        }
+        
+        // Check each category
+        if (icon.categories && icon.categories.some(category => category.toLowerCase().includes(q))) {
+            return true;
+        }
+        
+        return false;
+    });
+    
+    // Sort alphabetically by friendly_name
+    filtered.sort((a, b) => a.friendly_name.localeCompare(b.friendly_name));
 
     if (filtered.length === 0) {
         const hint = document.createElement('div');
@@ -107,7 +179,7 @@ function renderIconGrid(filter = '') {
     }
 
     // create a root-aware observer so we load thumbnails as they scroll into the icon-list viewport
-    // tightened rootMargin so we don't pre-load many offscreen icons
+    // wider rootMargin to preload more icons before they enter the viewport
     lazyObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
@@ -120,11 +192,14 @@ function renderIconGrid(filter = '') {
                 lazyObserver.unobserve(el);
             }
         });
-    }, { root: iconList, rootMargin: '100px', threshold: 0.01 });
+    }, { root: iconList, rootMargin: '300px', threshold: 0.01 });
 
     // Render items in small chunks to avoid blocking the main thread when there are thousands.
     const CHUNK_SIZE = 150;
     let index = 0;
+    
+    // Keep track of the first batch of visible icons to prioritize loading them
+    const initialVisibleIcons = [];
 
     const renderChunk = (deadline) => {
         const start = performance.now();
@@ -132,39 +207,44 @@ function renderIconGrid(filter = '') {
             const icon = filtered[index++];
             const iconDiv = document.createElement('div');
             iconDiv.className = 'icon-thumb';
-            iconDiv.title = icon;
-            iconDiv.dataset.iconName = icon;
+            iconDiv.title = icon.friendly_name;
+            iconDiv.dataset.iconName = icon.name;
             const svgWrap = document.createElement('div');
             svgWrap.className = 'icon-svg';
             svgWrap.innerHTML = '';
             const label = document.createElement('span');
             label.className = 'icon-label';
-            label.textContent = icon;
+            label.textContent = icon.friendly_name;
             iconDiv.appendChild(svgWrap);
             iconDiv.appendChild(label);
 
             iconDiv.addEventListener('click', () => {
-                currentIcon = icon;
+                currentIcon = icon.name;
                 Array.from(iconList.children).forEach(c => c.classList.remove('selected'));
                 iconDiv.classList.add('selected');
                 // ensure thumbnail is queued/loaded so selection shows a glyph
-                loadSvgIntoDiv(iconDiv, icon);
+                loadSvgIntoDiv(iconDiv, icon.name);
                 // update preview on the selector button
                 loadSvgPreview(selectIconBtn, currentIcon);
                 // close the icon selector panel
                 closePopup(iconSelector, selectIconBtn);
-                renderIcon(currentIcon);
+                debouncedRenderIcon(currentIcon);
             });
 
             // mark initial selection if this matches currentIcon
-            if (icon === currentIcon) {
+            if (icon.name === currentIcon) {
                 iconDiv.classList.add('selected');
                 // queue immediate load for the selected thumbnail
-                enqueueIconLoad(iconDiv, icon);
+                enqueueIconLoad(iconDiv, icon.name);
             }
 
             iconList.appendChild(iconDiv);
             lazyObserver.observe(iconDiv);
+            
+            // If this is in the first visible batch, add to priority loading list
+            if (index <= 40) { // Preload first 40 icons
+                initialVisibleIcons.push(iconDiv);
+            }
 
             // break out of the loop periodically to keep UI responsive
             if ((performance.now() - start) > 10) break;
@@ -179,6 +259,11 @@ function renderIconGrid(filter = '') {
             } else {
                 setTimeout(() => renderChunk(), 16);
             }
+        } else if (initialVisibleIcons.length > 0) {
+            // When done rendering all items, immediately load the first batch of visible icons
+            initialVisibleIcons.forEach(iconDiv => {
+                enqueueIconLoad(iconDiv, iconDiv.dataset.iconName);
+            });
         }
     };
 
@@ -207,11 +292,19 @@ function iconClassToFilename(iconClass) {
     return (iconClass || '').trim() + '.svg';
 }
 
+// Find an icon object by name in the availableIcons array
+function findIconByName(name) {
+    return availableIcons.find(icon => icon.name === name);
+}
+
 // Fetch an SVG file as text from your assets dir
-async function fetchIconSvg(iconClass) {
+async function fetchIconSvg(iconClass, signal) {
     const file = iconClassToFilename(iconClass);
     const url = `assets/bootstrap-icons/${file}`;
-    const res = await fetch(url, { cache: 'force-cache' });
+    const res = await fetch(url, { 
+        cache: 'force-cache',
+        signal: signal
+    });
     if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
     return res.text();
 }
@@ -496,19 +589,66 @@ function buildStyledSvg(shapes, srcViewBox = '0 0 16 16', backgroundColor = '#21
 }
 
 // Render helper
-async function renderIcon(iconClass) {
-    const canvas = document.getElementById('canvas');
-    canvas.innerHTML = ''; // clear old
+// Render helper with improved responsiveness while preventing flicker
+let renderInProgress = false;
+let pendingRenderIcon = null;
+let renderAbortController = null;
 
+async function renderIcon(iconClass) {
+    // If we're already rendering, store this request and continue
+    // (the current operation will check for pending requests when it's done)
+    if (renderInProgress) {
+        pendingRenderIcon = iconClass;
+        return;
+    }
+    
+    renderInProgress = true;
+    const canvas = document.getElementById('canvas');
+    
+    // Create an abort controller for this render operation
+    if (renderAbortController) {
+        renderAbortController.abort();
+    }
+    renderAbortController = new AbortController();
+    const signal = renderAbortController.signal;
+    
     try {
-        const svgText = await fetchIconSvg(iconClass);
+        // Pre-fetch and prepare SVG (this could be aborted if another request comes in)
+        const svgText = await fetchIconSvg(iconClass, signal);
+        
+        // Check if we've been aborted or if there's a newer request
+        if (signal.aborted || pendingRenderIcon !== null) {
+            throw new Error('Rendering aborted for newer request');
+        }
+        
         const { shapes, srcViewBox } = extractShapes(svgText);
         if (!shapes.length) throw new Error('No drawable shapes found in SVG.');
-        // pass currentRadius as fraction (0..1) as last arg
+        
+        // Create the new SVG (potentially expensive operation)
         const svg = buildStyledSvg(shapes, srcViewBox, currentBgColor, currentSize, currentAngle, currentBgStyle, currentGlyphStyle, currentGlyphColor, currentRadius / 100);
+        
+        // Check again if we've been aborted
+        if (signal.aborted || pendingRenderIcon !== null) {
+            throw new Error('Rendering aborted for newer request');
+        }
+        
+        // Only replace when new icon is ready and we haven't been aborted
+        canvas.innerHTML = '';
         canvas.appendChild(svg);
     } catch (err) {
-        console.error(err);
+        // Only log actual errors, not aborted operations
+        if (err.message !== 'Rendering aborted for newer request') {
+            console.error(err);
+        }
+    } finally {
+        renderInProgress = false;
+        
+        // If another render was requested while we were processing, handle it immediately
+        if (pendingRenderIcon !== null) {
+            const nextIcon = pendingRenderIcon;
+            pendingRenderIcon = null;
+            requestAnimationFrame(() => renderIcon(nextIcon)); // Use rAF for better timing
+        }
     }
 }
 
@@ -518,10 +658,32 @@ function downloadSvg() {
     const svg = document.getElementById('icon-root');
 
     if (!svg) {
-        alert('No icon is currently loaded.');
+        console.error('No SVG found to download');
         return;
     }
 
+    // Handle different export formats
+    switch (currentFormat) {
+        case 'svg':
+            exportSvg(iconName, svg);
+            break;
+        case 'png32':
+        case 'png64':
+        case 'png128':
+        case 'png256':
+        case 'png512':
+        case 'png1024':
+        case 'png2048':
+            const size = parseInt(currentFormat.replace('png', ''));
+            exportPng(iconName, svg, size);
+            break;
+        default:
+            console.error('Unsupported format:', currentFormat);
+    }
+}
+
+// Export as SVG
+function exportSvg(iconName, svg) {
     // Create a new SVG document for export
     const svgNS = 'http://www.w3.org/2000/svg';
     const exportSvg = document.createElementNS(svgNS, 'svg');
@@ -546,7 +708,7 @@ function downloadSvg() {
     svgString = svgString.replace(/NS\d:href/g, 'xlink:href');
 
     // Create a Blob with the SVG data
-    const blob = new Blob([svgString], { type: 'image/svgxml' });
+    const blob = new Blob([svgString], { type: 'image/svg+xml' });
 
     // Create a download link
     const a = document.createElement('a');
@@ -562,6 +724,159 @@ function downloadSvg() {
     }, 100);
 }
 
+// Export as PNG
+function exportPng(iconName, svg, size) {
+    // Get the SVG data
+    const svgData = new XMLSerializer().serializeToString(svg);
+    
+    // Create a new SVG with fixed dimensions to ensure proper rendering
+    const fixedSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    fixedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    fixedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    fixedSvg.setAttribute('width', size);
+    fixedSvg.setAttribute('height', size);
+    fixedSvg.setAttribute('viewBox', svg.getAttribute('viewBox'));
+    
+    // Clone all children from the original SVG
+    const clone = svg.cloneNode(true);
+    while (clone.firstChild) {
+        fixedSvg.appendChild(clone.firstChild);
+    }
+    
+    // Convert to a data URL with proper encoding
+    const fixedSvgData = new XMLSerializer().serializeToString(fixedSvg);
+    const svgBlob = new Blob([fixedSvgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    
+    // Create an offscreen image to load the SVG
+    const img = new Image();
+    
+    // Set up the onload handler to render to canvas when the image is ready
+    img.onload = function() {
+        // Create a high-resolution canvas (2x size for better quality)
+        const canvas = document.createElement('canvas');
+        const scale = 2; // Scale factor for higher quality
+        canvas.width = size * scale;
+        canvas.height = size * scale;
+        const ctx = canvas.getContext('2d');
+        
+        // Use higher quality settings
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        // Clear background to transparent
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Scale the context to draw at the right size
+        ctx.scale(scale, scale);
+        
+        // Draw the image
+        ctx.drawImage(img, 0, 0, size, size);
+        
+        // Convert to PNG with high quality
+        canvas.toBlob(function(blob) {
+            // Create download link
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${iconName}-icon-${size}px.png`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Cleanup
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+                URL.revokeObjectURL(url);
+            }, 100);
+        }, 'image/png', 1.0); // 1.0 = highest quality
+    };
+    
+    // Handle loading errors
+    img.onerror = function() {
+        console.error('Error loading SVG for PNG export');
+        alert('There was an error exporting to PNG. Please try again or use SVG format.');
+        URL.revokeObjectURL(url);
+    };
+    
+    // Trigger the load
+    img.src = url;
+}
+
+// Export as PNG with high quality
+function exportPng(iconName, svg, size) {
+    // Get the SVG data
+    const svgData = new XMLSerializer().serializeToString(svg);
+    
+    // Create a new SVG with fixed dimensions to ensure proper rendering
+    const fixedSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    fixedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    fixedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    fixedSvg.setAttribute('width', size);
+    fixedSvg.setAttribute('height', size);
+    fixedSvg.setAttribute('viewBox', svg.getAttribute('viewBox'));
+    
+    // Clone all children from the original SVG
+    const clone = svg.cloneNode(true);
+    while (clone.firstChild) {
+        fixedSvg.appendChild(clone.firstChild);
+    }
+    
+    // Convert to a data URL
+    const fixedSvgData = new XMLSerializer().serializeToString(fixedSvg);
+    const svgBlob = new Blob([fixedSvgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    
+    // Create an image to load the SVG
+    const img = new Image();
+    
+    img.onload = function() {
+        // Create a high-resolution canvas
+        const canvas = document.createElement('canvas');
+        const scale = 2;
+        canvas.width = size * scale;
+        canvas.height = size * scale;
+        const ctx = canvas.getContext('2d');
+        
+        // Use higher quality settings
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        
+        // Clear background to transparent
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Scale the context
+        ctx.scale(scale, scale);
+        
+        // Draw the image
+        ctx.drawImage(img, 0, 0, size, size);
+        
+        // Convert to PNG
+        canvas.toBlob(function(blob) {
+            // Create download link
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${iconName}-icon-${size}px.png`;
+            document.body.appendChild(a);
+            a.click();
+            
+            // Cleanup
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+                URL.revokeObjectURL(url);
+            }, 100);
+        }, 'image/png', 1.0);
+    };
+    
+    img.onerror = function() {
+        console.error('Error loading SVG for PNG export');
+        alert('There was an error exporting to PNG. Please try again or use SVG format.');
+        URL.revokeObjectURL(url);
+    };
+    
+    img.src = url;
+}
+
 // Current state
 // track selected icon via clicks (removed text input)
 let currentIcon = 'palette-fill';
@@ -573,10 +888,65 @@ let currentAngle = 0; // Default rotation in degrees
 let currentBgStyle = 'gradient'; // Default background style
 let currentRadius = 25; // corner radius in percent (default 25% to match previous behavior)
 
+// Create optimized rendering functions for different interaction types:
+// - For sliders: use throttling with a short interval for responsiveness during movement
+// - For button/selector clicks: use light debouncing
+const throttledRenderIcon = throttle(renderIcon, 16); // ~60fps for smooth slider movement
+const debouncedRenderIcon = debounce(renderIcon, 10); // Short debounce for other interactions
+
 // UI wiring (selection happens via clicking thumbnails)
+
+// Format select and download button handling
+const formatSelect = document.getElementById('format-select');
+let currentFormat = 'svg'; // Default format
+
+// Update format when selection changes
+formatSelect.addEventListener('change', (e) => {
+    currentFormat = e.target.value;
+    updateDownloadButtonText();
+});
+
+// Initialize download button text
+function updateDownloadButtonText() {
+    const downloadBtn = document.getElementById('download-btn');
+    let formatDisplay;
+    
+    // Convert format value to a more friendly display name
+    switch (currentFormat) {
+        case 'svg':
+            formatDisplay = 'SVG';
+            break;
+        case 'png32':
+            formatDisplay = 'PNG (32px)';
+            break;
+        case 'png64':
+            formatDisplay = 'PNG (64px)';
+            break;
+        case 'png128':
+            formatDisplay = 'PNG (128px)';
+            break;
+        case 'png256':
+            formatDisplay = 'PNG (256px)';
+            break;
+        case 'png512':
+            formatDisplay = 'PNG (512px)';
+            break;
+        case 'png1024':
+            formatDisplay = 'PNG (1024px)';
+            break;
+        case 'png2048':
+            formatDisplay = 'PNG (2048px)';
+            break;
+        default:
+            formatDisplay = currentFormat.toUpperCase();
+    }
+    
+    downloadBtn.textContent = `Save as ${formatDisplay}`;
+}
 
 // Add download button event listener
 document.getElementById('download-btn').addEventListener('click', downloadSvg);
+updateDownloadButtonText(); // Set initial button text
 
 // Color palette / grid handling
 // background palette
@@ -624,10 +994,12 @@ function loadSvgPreview(buttonEl, iconName) {
     fetch(url, { cache: 'force-cache' })
         .then(res => res.ok ? res.text() : Promise.reject(new Error('not found')))
         .then(svg => {
+            // Only replace content when new SVG is ready
             container.innerHTML = svg;
         })
-        .catch(() => {
-            container.innerHTML = '';
+        .catch((err) => {
+            console.error('Failed to load icon preview:', err);
+            // Only clear if there was an error (keeping previous icon is better than showing nothing)
         });
 }
 
@@ -753,7 +1125,7 @@ gridColors.forEach(cell => {
         paletteBtn.style.background = currentBgColor;
         // close via helper so height animates
         closePopup(colorGrid, paletteBtn);
-        renderIcon(currentIcon);
+        debouncedRenderIcon(currentIcon);
     });
 });
 // glyph grid selection
@@ -772,7 +1144,7 @@ glyphGridColors.forEach(cell => {
         glyphPaletteBtn.style.background = currentGlyphColor;
         // close via helper so height animates
         closePopup(glyphGrid, glyphPaletteBtn);
-        renderIcon(currentIcon);
+        debouncedRenderIcon(currentIcon);
     });
 });
 
@@ -791,7 +1163,7 @@ customColorInput.addEventListener('input', () => {
     customCell.classList.add('selected');
     paletteBtn.style.background = currentBgColor;
     closePopup(colorGrid, paletteBtn);
-    renderIcon(currentIcon);
+    debouncedRenderIcon(currentIcon);
 });
 customGlyphColorInput.addEventListener('input', () => {
     currentGlyphColor = customGlyphColorInput.value;
@@ -800,20 +1172,20 @@ customGlyphColorInput.addEventListener('input', () => {
     customCell.classList.add('selected');
     glyphPaletteBtn.style.background = currentGlyphColor;
     closePopup(glyphGrid, glyphPaletteBtn);
-    renderIcon(currentIcon);
+    debouncedRenderIcon(currentIcon);
 });
 
 // Background style selector handling
 bgStyleSelect.addEventListener('change', () => {
     currentBgStyle = bgStyleSelect.value;
     // when switching away from custom solid color, leave custom button visual as-is
-    renderIcon(currentIcon);
+    debouncedRenderIcon(currentIcon);
 });
 // glyph style selector
 glyphStyleSelect.addEventListener('change', () => {
     currentGlyphStyle = glyphStyleSelect.value;
     // when changing glyph style, re-render (glyph gradient/diag logic updates in builder)
-    renderIcon(currentIcon);
+    debouncedRenderIcon(currentIcon);
 });
 
 // Size slider handling
@@ -823,10 +1195,13 @@ const sizeValue = (sizeSlider && sizeSlider.previousElementSibling)
     ? sizeSlider.previousElementSibling.querySelector('.slider-value')
     : document.querySelector('.slider-value');
 
-sizeSlider.addEventListener('input', () => {
+// Update the UI immediately but throttle the actual rendering for responsiveness
+sizeSlider.addEventListener('input', (e) => {
+    // Update UI immediately
     currentSize = parseInt(sizeSlider.value);
     sizeValue.textContent = `${currentSize}%`;
-    renderIcon(currentIcon);
+    // Throttled rendering for responsive slider movement
+    throttledRenderIcon(currentIcon);
 });
 
 // Angle slider handling
@@ -836,10 +1211,12 @@ const angleValue = (angleSlider && angleSlider.previousElementSibling)
     ? angleSlider.previousElementSibling.querySelector('.slider-value')
     : (document.querySelectorAll('.slider-value')[1] || document.querySelector('.slider-value'));
 
-angleSlider.addEventListener('input', () => {
+angleSlider.addEventListener('input', (e) => {
+    // Update UI immediately
     currentAngle = parseInt(angleSlider.value);
     angleValue.textContent = `${currentAngle}°`;
-    renderIcon(currentIcon);
+    // Throttled rendering for responsive slider movement
+    throttledRenderIcon(currentIcon);
 });
 
 // Radius slider handling
@@ -849,10 +1226,12 @@ if (radiusSlider && radiusValue) {
     // ensure UI reflects initial state
     radiusSlider.value = String(currentRadius);
     radiusValue.textContent = `${currentRadius}%`;
-    radiusSlider.addEventListener('input', () => {
+    radiusSlider.addEventListener('input', (e) => {
+        // Update UI immediately
         currentRadius = parseInt(radiusSlider.value, 10);
         radiusValue.textContent = `${currentRadius}%`;
-        renderIcon(currentIcon);
+        // Throttled rendering for responsive slider movement
+        throttledRenderIcon(currentIcon);
     });
 }
 
@@ -866,6 +1245,7 @@ const rLbl = document.getElementById('radius-value');
 if (rEl) rEl.value = String(currentRadius);
 if (rLbl) rLbl.textContent = `${currentRadius}%`;
 
+// Initial render (don't need to debounce the first one)
 renderIcon(currentIcon);
 
 (function enableCanvasPanningAndZoom() {

@@ -8,6 +8,8 @@
     --window-title-bar-color: #e4e4e4;
     --ui-accent: #007bff;
     --ui-accent-hover: #0056b3;
+    --ui-secondary: #7a7a7a;
+    --ui-secondary-hover: #686868;
     --bounce: cubic-bezier(.65, 1.86, .62, .88);
 }
 
@@ -22,6 +24,8 @@
         --window-title-bar-color: #272727;
         --ui-accent: #007bff;
         --ui-accent-hover: #238dff;
+        --ui-secondary: #474747;
+        --ui-secondary-hover: #5a5a5a;
     }
 }
 
@@ -32,6 +36,10 @@ body {
     background: var(--background-color);
     color: var(--foreground-color);
     -webkit-font-smoothing: antialiased;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+    overflow: hidden;
 }
 
 #header {
@@ -66,7 +74,7 @@ body {
     right: 0;
     bottom: 0;
     left: 0;
-    height: 100vh;
+    height: 100svh;
 }
 
 #navbar {
@@ -83,6 +91,13 @@ body {
     padding: 0 16px;
     border-bottom: 1px solid var(--border-color);
     z-index: 1;
+}
+
+#navbar-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
 }
 
 #main {
@@ -272,15 +287,49 @@ button {
     border: none;
     border-radius: 999px;
     cursor: pointer;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: var(--ui-accent-hover);
+}
+
+#format-btn {
+    background-color: var(--ui-secondary);
+}
+
+#format-btn:hover {
+    background-color: var(--ui-secondary-hover);
 }
 
 .animated-button {
-    transition: transform .3s var(--bounce), opacity 0.2s;
+    transition: transform .3s var(--bounce), opacity 0.2s, background 0.2s;
 }
 
 .animated-button:active {
     transform: scale(1.4);
     opacity: 0.6;
+}
+
+.select-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.select-chevron {
+    height: 1em;
+    width: 1em;
+    color: rgb(from var(--foreground-color) r g b / 0.6);
+}
+
+#navbar-right {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
 }
 
 select {
@@ -292,6 +341,7 @@ select {
     font-size: 1em;
     outline: none;
     text-align-last: right;
+    cursor: pointer;
 }
 
 input[type="range"] {
@@ -653,8 +703,10 @@ input[type="range"] {
         min-width: auto;
         padding: 12px 12px 0 12px;
         order: 2;
-        max-height: calc(100vh - 256px);
+        max-height: calc(100svh - 256px);
         border-radius: 24px 24px 0 0;
+        border-right: none;
+        border-top: 1px solid var(--border-color);
     }
 
     #right {
@@ -670,7 +722,7 @@ input[type="range"] {
     }
 
     #icon-selector {
-        height: calc(100vh - 64px);
+        height: calc(100svh - 64px);
         width: calc(100vw - 32px);
         border-radius: 16px;
     }
@@ -726,7 +778,7 @@ input[type="range"] {
 
 @media (max-width: 400px) {
     #left {
-        max-height: calc(100vh - 200px);
+        max-height: calc(100svh - 200px);
     }
 
     #right {
