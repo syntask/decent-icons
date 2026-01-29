@@ -897,14 +897,39 @@ const debouncedRenderIcon = debounce(renderIcon, 10); // Short debounce for othe
 // UI wiring (selection happens via clicking thumbnails)
 
 // Format select and download button handling
+
 const formatSelect = document.getElementById('format-select');
 let currentFormat = 'svg'; // Default format
 
 // Update format when selection changes
 formatSelect.addEventListener('change', (e) => {
     currentFormat = e.target.value;
-    updateDownloadButtonText();
+    // Only call updateDownloadButtonText if the user is not on the mobile device breakpoint
+    if (window.innerWidth > 600) {
+        updateDownloadButtonText();
+    }
 });
+
+// Update download button based on window width
+window.addEventListener('resize', () => {
+    if (window.innerWidth <= 600) {
+        // On small screens, use a generic label
+        const downloadBtn = document.getElementById('download-btn');
+        downloadBtn.textContent = 'Save';
+    } else {
+        // On larger screens, show specific format
+        updateDownloadButtonText();
+    }
+});
+
+// Set initial button text
+
+if (window.innerWidth > 600) {
+    updateDownloadButtonText();
+} else {
+    const downloadBtn = document.getElementById('download-btn');
+    downloadBtn.textContent = 'Save';
+}
 
 // Initialize download button text
 function updateDownloadButtonText() {
@@ -946,7 +971,7 @@ function updateDownloadButtonText() {
 
 // Add download button event listener
 document.getElementById('download-btn').addEventListener('click', downloadSvg);
-updateDownloadButtonText(); // Set initial button text
+
 
 // Color palette / grid handling
 // background palette

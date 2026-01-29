@@ -58,8 +58,8 @@ body {
 }
 
 .header-title {
-    font-size: 2em;
-    font-weight: 700;
+    font-size: 1.8em;
+    font-weight: 600;
     margin: 0;
     margin-block-start: 0;
     margin-block-end: 0;
@@ -91,6 +91,7 @@ body {
     padding: 0 16px;
     border-bottom: 1px solid var(--border-color);
     z-index: 1;
+    text-wrap: nowrap;
 }
 
 #navbar-right {
@@ -703,7 +704,7 @@ input[type="range"] {
         min-width: auto;
         padding: 12px 12px 0 12px;
         order: 2;
-        max-height: calc(100svh - 256px);
+        max-height: calc(100svh - 350px);
         border-radius: 24px 24px 0 0;
         border-right: none;
         border-top: 1px solid var(--border-color);
@@ -712,13 +713,28 @@ input[type="range"] {
     #right {
         width: 100%;
         order: 1;
-        height: 256px;
-        max-height: 256px;
+    }
+
+    #header-logo {
+        height: 1.8em;
+        aspect-ratio: 1/1;
+    }
+
+    .header-title {
+        font-size: 1.1em;
+        font-weight: 500;
+        margin: 0;
+        margin-block-start: 0;
+        margin-block-end: 0;
     }
 
     #canvas {
         height: calc(100% - 32px);
         width: auto;
+    }
+
+    #controls-heading {
+        margin-top: 12px;
     }
 
     #icon-selector {
@@ -743,10 +759,6 @@ input[type="range"] {
         width: 100%;
         margin-right: 14px;
         font-size: 1.1em;
-    }
-
-    #navbar {
-        display: none;
     }
 
     input[type="range"] {
@@ -774,22 +786,21 @@ input[type="range"] {
         border-radius: 4px;
     }
 
-}
-
-@media (max-width: 400px) {
-    #left {
-        max-height: calc(100svh - 200px);
+    select {
+        font-size: 0.8em;
     }
 
-    #right {
-        width: 100%;
-        order: 1;
-        height: 200px;
-        max-height: 200px;
+    .select-chevron {
+        font-size: 0.8em;
     }
 
-    #canvas {
-        height: calc(100% - 32px);
-        width: auto;
+    .select-wrapper {
+        margin-top: 4px;
+        gap: 0;
+    }
+
+    button {
+        padding: 8px 12px;
+        font-size: 1em;
     }
 }
